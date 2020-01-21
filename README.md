@@ -1,6 +1,6 @@
 # codon-opt
 
-## Codon optimization problems with motif engineering
+## Codon optimization problem with motif engineering
 
 **Given:**
 A target protein *P* (i.e., a sequence of amino acids), a set of desired motifs *D* and a set of undesired motifs *U*
