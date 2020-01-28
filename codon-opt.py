@@ -1,6 +1,8 @@
 import gurobipy as gb
 import pandas as pd
 import math
+import argparse
+
 
 #
 # Inverse table for standard genetic code
@@ -117,26 +119,27 @@ Costs = {k: math.log(FrequencyNorm[k]) for k in FrequencyNorm.keys()}
 # Functions
 #
 
-def read_fasta(fastafile:str)->pd.DataFrame:
+
+def read_fasta(fasta_file: str) -> pd.DataFrame:
     """
     Read fasta file using pandas
     :param: filename
     :return: pandas DataFrame with target proteins
     """
-    df = pd.read_csv(fastafile, header=None, comment='>', engine='python',
+    df = pd.read_csv(fasta_file, header=None, comment='>', engine='python',
                      names=['Protein'])
 
     df['Protein'] = df['Protein'].apply(lambda x: x[:len(x) - len(x) % 3])
 
     df['Length'] = df['Protein'].str.len()
 
-    print(fastafile, ('has %d protein(s)' % df.shape[0]))
+    print(fasta_file, ('has %d protein(s)' % df.shape[0]))
 
     return df
 
 
-def read_motifs(forbiddenfile: str,
-                desiredfile: str)->(list, list):
+def read_motifs(forbidden_file: str,
+                desired_file: str) -> (list, list):
     """
     Read forbidden and desired motifs
     :param: forbidden and desired file names
@@ -146,14 +149,14 @@ def read_motifs(forbiddenfile: str,
     forbidden = []
     desired = []
 
-    if forbiddenfile is not None:
-        with open(forbiddenfile) as file:
+    if forbidden_file is not None:
+        with open(forbidden_file) as file:
             forbidden = file.readlines()
 
         forbidden = [x.strip() for x in forbidden]
 
-    if desiredfile is not None:
-        with open(desiredfile) as file:
+    if desired_file is not None:
+        with open(desired_file) as file:
             desired = file.readlines()
 
         desired = [x.strip() for x in desired]
@@ -162,7 +165,7 @@ def read_motifs(forbiddenfile: str,
 
 
 def find_amino_from_codon(codon: str,
-                          table: dict)->dict:
+                          table: dict) -> dict:
 
     """
     Find all possible aminos that can be codified by a (partly empty) codon
@@ -180,21 +183,21 @@ def find_amino_from_codon(codon: str,
             aminos[table[codon]] = [codon]
 
     if codon[0] == '*':
-        partialcodon = codon.lstrip('*')
-        offset = len(codon) - len(partialcodon)
+        partial_codon = codon.lstrip('*')
+        offset = len(codon) - len(partial_codon)
         for i in table:
-            if partialcodon == i[offset:]:
+            if partial_codon == i[offset:]:
                 if table[i] in aminos:
                     aminos[table[i]].append(i)
                 else:
                     aminos[table[i]] = [i]
 
     if codon[2] == '*':
-        partialcodon = codon.rstrip('*')
-        offset = len(codon) - len(partialcodon)
+        partial_codon = codon.rstrip('*')
+        offset = len(codon) - len(partial_codon)
 
         for i in table:
-            if partialcodon == i[:3 - offset]:
+            if partial_codon == i[:3 - offset]:
                 if table[i] in aminos:
                     aminos[table[i]].append(i)
                 else:
@@ -204,7 +207,7 @@ def find_amino_from_codon(codon: str,
 
 
 def find_amino_sequence_in_protein(sequence: str,
-                                   aminos: str)->list:
+                                   aminos: str) -> list:
     """
     Check if a non-empty sequence of amino acids is
     contained in the aminos string
@@ -225,8 +228,8 @@ def find_amino_sequence_in_protein(sequence: str,
     return feasiblepos
 
 
-def find_motif_position(motif:str,
-                        aminos:str)->(dict,dict):
+def find_motif_position(motif: str,
+                        aminos: str) -> (dict, dict):
     """
     Given a sequence of amino acids find positions in which
     a motif may be located
@@ -238,8 +241,8 @@ def find_motif_position(motif:str,
     more than one alternative
     """
 
-    feasiblePositions = {}
-    feasiblePositionsBasis = {}
+    feasible_positions = {}
+    feasible_positions_basis = {}
 
     #
     # Test three possible positions
@@ -248,61 +251,60 @@ def find_motif_position(motif:str,
     for offset in range(3):
 
         sequence = ''.join('*' * offset) + motif
-        startoffset = offset
+        start_offset = offset
 
         if len(sequence) % 3 != 0:
-            endoffset = (3 - (len(sequence) % 3))
+            end_offset = (3 - (len(sequence) % 3))
             sequence += ('*' * (3 - (len(sequence) % 3)))
         else:
-            endoffset = 0
+            end_offset = 0
 
-        firstlevel = find_amino_from_codon(sequence[0:3], TableDNA)
+        first_level = find_amino_from_codon(sequence[0:3], TableDNA)
 
         if len(sequence) > 3:
-            lastlevel = find_amino_from_codon(sequence[-3:], TableDNA)
+            last_level = find_amino_from_codon(sequence[-3:], TableDNA)
         else:
             raise ValueError('Motif must have length > 3')
 
-        middlelevels = []
+        middle_levels = []
 
         for idx in range(3, len(sequence) - 3, 3):
             codon = sequence[idx: idx + 3]
-            middlelevels.append(find_amino_from_codon(codon, TableDNA))
+            middle_levels.append(find_amino_from_codon(codon, TableDNA))
 
         #
         # Build the sequences starting from possible
         # encodings
         #
 
-        for head in firstlevel:
-            sequence = [{head: firstlevel[head]}]
+        for head in first_level:
+            sequence = [{head: first_level[head]}]
 
-            sequence += middlelevels
+            sequence += middle_levels
 
-            aminosequence = ''.join([[*i.keys()][0] for i in middlelevels])
-            aminosequence = head + aminosequence
+            amino_sequence = ''.join([[*i.keys()][0] for i in middle_levels])
+            amino_sequence = head + amino_sequence
 
-            for tail in lastlevel:
-                sequence += [{tail: lastlevel[tail]}]
-                aminosequence += tail
+            for tail in last_level:
+                sequence += [{tail: last_level[tail]}]
+                amino_sequence += tail
 
-                feasiblePoslist = find_amino_sequence_in_protein(aminosequence, aminos)
+                feasible_pos_list = find_amino_sequence_in_protein(amino_sequence, aminos)
 
-                for pos in feasiblePoslist:
-                    feasiblePositions[pos] = sequence.copy()
-                    startbasispos = pos[0] * 3 + startoffset
-                    endbasispos = (pos[1] + 1) * 3 - endoffset - 1
-                    feasiblePositionsBasis[startbasispos, endbasispos] = sequence.copy()
+                for pos in feasible_pos_list:
+                    feasible_positions[pos] = sequence.copy()
+                    start_basis_pos = pos[0] * 3 + start_offset
+                    end_basis_pos = (pos[1] + 1) * 3 - end_offset - 1
+                    feasible_positions_basis[start_basis_pos, end_basis_pos] = sequence.copy()
 
                 del sequence[-1]
-                aminosequence = aminosequence[:-1]
+                amino_sequence = amino_sequence[:-1]
 
-    return feasiblePositionsBasis
+    return feasible_positions_basis
 
 
-
-def protein_from_solution(x:gb.tupledict,
-                          protein:str)->str:
+def protein_from_solution(x: gb.tupledict,
+                          protein: list) -> str:
 
     """
     Build the protein from a solver's solution (x variables only)
@@ -312,23 +314,21 @@ def protein_from_solution(x:gb.tupledict,
     for i in x:
         if x[i] > 0.5:
             position = i[0]
-            amino = i[1]
             codon = i[2]
             protein[position] = codon
 
     return ''.join(protein)
 
 
-def build_y_variables_index(desired:list,
-                            aminos:str)->(list,dict,dict):
+def build_y_variables_index(desired: list,
+                            aminos: str) -> (list, dict, dict):
     """
     Build the index set of y variables
     :param: list of desired motifs, amino acids sequence
     :return list of y indexes, feasible positions for the basis, index of desired motifs
     """
 
-    indexlist = []
-    feasible_positions_desired = {}
+    index_list = []
     feasible_positions_desired_basis = {}
     index_desired = {}
 
@@ -341,25 +341,23 @@ def build_y_variables_index(desired:list,
         aux = find_motif_position(motif, aminos)
         if aux:
 
-            #feasible_positions_desired[motif] = aux
             feasible_positions_desired_basis[motif] = aux
 
             for pos in feasible_positions_desired_basis[motif]:
-                indexlist.append((index_desired[motif], str(pos).replace(" ", "")))
+                index_list.append((index_desired[motif], str(pos).replace(" ", "")))
 
-    return indexlist, feasible_positions_desired_basis, index_desired
+    return index_list, feasible_positions_desired_basis, index_desired
 
 
-def build_z_variables_index(forbidden:list,
-                            aminos:str)->(list, dict, dict):
+def build_z_variables_index(forbidden: list,
+                            aminos: str) -> (list, dict, dict):
     """
     Build the index set of z variables
     :param: list of forbidden motifs, amino acids sequence
     :return list of z indexes, feasible positions for the basis, index of forbidden motifs
     """
 
-    indexlist = []
-    feasible_positions_forbidden = {}
+    index_list = []
     feasible_positions_forbidden_basis = {}
     index_forbidden = {}
 
@@ -372,24 +370,20 @@ def build_z_variables_index(forbidden:list,
         aux = find_motif_position(motif, aminos)
         if aux:
 
-            #feasible_positions_forbidden[motif] = aux
             feasible_positions_forbidden_basis[motif] = aux
 
             for pos in feasible_positions_forbidden_basis[motif]:
-                indexlist.append((index_forbidden[motif], str(pos).replace(" ", "")))
-        # else:
-        # print('No feasible positions')
-        # print ('-'*50)
+                index_list.append((index_forbidden[motif], str(pos).replace(" ", "")))
 
-    return indexlist, feasible_positions_forbidden_basis, index_forbidden
+    return index_list, feasible_positions_forbidden_basis, index_forbidden
 
 
-def count_forbidden(protein:str,
-                    forbidden:list)->int:
+def count_forbidden(protein: str,
+                    forbidden: list) -> int:
     """
     Count the number of forbidden motifs in protein
     """
-    totalforb = 0
+    total_forb = 0
 
     for motif in forbidden:
         found = protein.find(motif)
@@ -398,9 +392,9 @@ def count_forbidden(protein:str,
             count += 1
             start = found + 1
             found = protein.find(motif, start)
-        totalforb += count
+        total_forb += count
 
-    return totalforb
+    return total_forb
 
 
 def count_desired(protein, desired):
@@ -408,7 +402,7 @@ def count_desired(protein, desired):
     Count the number of desired motifs in
     """
 
-    totaldes = 0
+    total_des = 0
 
     positions = set()
 
@@ -420,9 +414,9 @@ def count_desired(protein, desired):
             count += 1
             start = found + 1
             found = protein.find(motif, start)
-        totaldes += count
+        total_des += count
 
-    return totaldes
+    return total_des
 
 
 def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
@@ -438,9 +432,8 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
 
     model = gb.Model()
     model.Params.OutputFlag = 0
-    model.Params.Threads = 4
 
-    indexlist = []
+    index_list = []
     costs = {}
 
     protein_length = len(target_protein)
@@ -453,10 +446,10 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
         amino = TableDNA[target_protein[h * 3: h * 3 + 3]]
         aminos += amino
         for i in enumerate(InvTableDNA[amino]):
-            indexlist.append((h, TableDNA[target_protein[h * 3: h * 3 + 3]], i[1]))
-            costs[indexlist[-1]] = Costs[i[1]]
+            index_list.append((h, TableDNA[target_protein[h * 3: h * 3 + 3]], i[1]))
+            costs[index_list[-1]] = Costs[i[1]]
 
-    x = model.addVars(indexlist, vtype='B', name='x')
+    x = model.addVars(index_list, vtype='B', name='x')
 
     # CAI objective has index 2 and priority 0 (lowest priority)
 
@@ -469,14 +462,14 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
 
     # Build index of y variables
 
-    indexlist, feasible_positions_desired, index_desired = \
+    index_list, feasible_positions_desired, index_desired = \
         build_y_variables_index(desired, aminos)
 
     # y variables
 
-    if indexlist:
+    if index_list:
 
-        y = model.addVars(indexlist, vtype='B', name='y')
+        y = model.addVars(index_list, vtype='B', name='y')
 
         for motif in feasible_positions_desired:
             for pos in feasible_positions_desired[motif]:
@@ -484,25 +477,24 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
                 for idx, codlist in enumerate(aux):
                     model.addConstr(y[index_desired[motif], str(pos).replace(" ", "")] <=
                                     gb.quicksum([x[pos[0] // 3 + idx, TableDNA[cod], cod] for cod in codlist]),
-                                    name='DesMotif[' + str(index_desired[motif]) + ']' + str(pos).replace(" ",
-                                                                                                          "") + 'Pos[' + str(
-                                        pos[0] // 3 + idx) + ']')
+                                    name='DesMotif[' + str(index_desired[motif]) + ']' +
+                                         str(pos).replace(" ", "") + 'Pos[' + str(pos[0] // 3 + idx) + ']')
 
         # Desired motifs objective has index 1 and priority 1 (medium priority)
 
-        model.setObjectiveN(y.prod({i: 1.0 for i in indexlist}), 1, 1, name='Desired')
+        model.setObjectiveN(y.prod({i: 1.0 for i in index_list}), 1, 1, name='Desired')
 
     #
     # Build index of z variables
     #
 
-    indexlist, feasible_positions_forbidden, index_forbidden = \
+    index_list, feasible_positions_forbidden, index_forbidden = \
         build_z_variables_index(forbidden, aminos)
 
     # z variables
 
-    if indexlist:
-        z = model.addVars(indexlist, vtype='B', name='z')
+    if index_list:
+        z = model.addVars(index_list, vtype='B', name='z')
 
         for motif in feasible_positions_forbidden:
 
@@ -519,79 +511,91 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
 
         # Desired motifs objective has index 0 and priority 2 (highest priority)
 
-        model.setObjectiveN(z.prod({i: -1.0 for i in indexlist}), 0, 2, name='Forbidden')
+        model.setObjectiveN(z.prod({i: -1.0 for i in index_list}), 0, 2, name='Forbidden')
 
     # Attach data to Gurobi model
 
     model._vars = x
-    model._tentativeprotein = ['***' for i in range(protein_length // 3)]
+    model._tentative_protein = list('***' for i in range(protein_length // 3))
 
-    model._currentprotein = ''
+    model._current_protein = ''
     model._forbids = forbidden
 
     model.optimize()
 
     assert model.Status == gb.GRB.Status.OPTIMAL
 
-    xsol = []
+    x_sol = []
 
     for s in range(model.SolCount):
         model.params.SolutionNumber = s
-        xsol.append(model.getAttr('Xn', x))
+        x_sol.append(model.getAttr('Xn', x))
 
     #  Get the best solution for CAI evaluation
 
     model.params.SolutionNumber = 0
     model.params.ObjNumber = 2
-    CAI_exp = model.ObjNVal
+    cai_exp = model.ObjNVal
 
-    finalprotein = protein_from_solution(xsol[0], model._tentativeprotein)
-    CAI = math.pow(math.e, CAI_exp / (len(finalprotein) // 3))
-    n_forbidden = count_forbidden(finalprotein, forbidden)
-    n_desired = count_desired(finalprotein, desired)
+    final_protein = protein_from_solution(x_sol[0], model._tentative_protein)
+    cai = math.pow(math.e, cai_exp / (len(final_protein) // 3))
+    n_forbidden = count_forbidden(final_protein, forbidden)
+    n_desired = count_desired(final_protein, desired)
 
-    return finalprotein, model.Runtime, model.NodeCount, model.Status, n_forbidden, n_desired, CAI
+    return final_protein, model.Runtime, model.NodeCount, model.Status, n_forbidden, n_desired, cai
+
 
 def main():
 
-    dataset = read_fasta('gencode_filtered.fasta')
-    forbidden, desired = read_motifs('forbidden.cpg', 'desirable.cpg')
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument('target_file', help='Target file (FASTA format)')
+    parser.add_argument('--forbidden', '-f', help='File of forbidden motifs')
+    parser.add_argument('--desired', '-d', help='File of desired motifs')
+    parser.add_argument('--output', '-o', help='Output file', default='optimized')
+
+    args = parser.parse_args()
+
+    dataset = read_fasta(args.target_file)
+
+    forbidden, desired = read_motifs(args.forbidden, args.desired)
 
     count = 0
-    print ('Num. prot.  | Length  | Forb. bef. | Des. bef. | CAI bef. | Forb. af.| Des. af.| CAI af. | Time')
+    print('Num. prot.  | Length  | Forb. bef. | Des. bef. | CAI bef. | Forb. af.| Des. af.| CAI af. | Time')
     for index, row in dataset.iterrows():
         count += 1
 
-        Protein = row['Protein']
+        protein = row['Protein']
 
-        CAI_before = math.pow(math.e,
-                              sum(Costs[Protein[i * 3:i * 3 + 3]] for i in range(len(Protein) // 3)) / (
-                                          len(Protein) // 3))
+        cai_before = math.pow(math.e,
+                              sum(Costs[protein[i * 3:i * 3 + 3]] for i in range(len(protein) // 3)) / (
+                                          len(protein) // 3))
 
-        n_forbidden_start = count_forbidden(Protein, forbidden)
-        n_desired_start = count_desired(Protein, desired)
+        n_forbidden_start = count_forbidden(protein, forbidden)
+        n_desired_start = count_desired(protein, desired)
 
-        print('%11d' % count, '|%8d' % len(Protein), '|%11d' % n_forbidden_start, '|%10d' % n_desired_start, ('|   %1.4f' % CAI_before), end=' ')
+        print('%11d' % count, '|%8d' % len(protein), '|%11d' % n_forbidden_start,
+              '|%10d' % n_desired_start, ('|   %1.4f' % cai_before), end=' ')
 
         dataset.loc[index, 'Forb. before'] = n_forbidden_start
         dataset.loc[index, 'Des. before'] = n_desired_start
-        dataset.loc[index, 'CAI before'] = CAI_before
+        dataset.loc[index, 'CAI before'] = cai_before
 
-        finalprotein, time, nodes, status, n_forbidden, n_desired, CAI = \
-            gen_protein_hierarchical_objectives(Protein, forbidden,
+        final_protein, time, nodes, status, n_forbidden, n_desired, cai = \
+            gen_protein_hierarchical_objectives(protein, forbidden,
                                                 desired)
 
-        dataset.loc[index, 'Forb. opt'] = count_forbidden(finalprotein, forbidden)
-        dataset.loc[index, 'Des. opt'] = count_desired(finalprotein, desired)
-        dataset.loc[index, 'CAI opt'] = CAI
+        dataset.loc[index, 'Forb. opt'] = count_forbidden(final_protein, forbidden)
+        dataset.loc[index, 'Des. opt'] = count_desired(final_protein, desired)
+        dataset.loc[index, 'CAI opt'] = cai
         dataset.loc[index, 'Time'] = time
 
         print('|%9d' % dataset.loc[index, 'Forb. opt'], '|%8d' % dataset.loc[index, 'Des. opt'],
               ('| %1.4f' % dataset.loc[index, 'CAI opt']), ('| %4.4f' % time))
 
-    dataset.to_csv('optimized.csv')
+    dataset.to_csv(args.output + '.csv')
 
 
 if __name__ == '__main__':
     main()
+
