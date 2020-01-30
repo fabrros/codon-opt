@@ -37,17 +37,15 @@ A ```.fasta``` file containing a list of target proteins
 Two (optional) text files ```forbidden.txt``` and ```desired.txt```
 containing a list of forbidden and desired motifs
 
-## Python modules
+## Requirements
 
-```python
-    python=3.7.6
-    pandas=0.25
-    gurobipy=8.1.1
-```
+python=3.7.6
+pandas=0.25
+gurobipy=8.1.1
 
 ## Usage
 
-```codon-opt target.fasta [-f forbidden_file.txt]  [-d desired_file.txt] [-o output_file]```
+```python codon-opt.py target.fasta [-f forbidden_file.txt]  [-d desired_file.txt] [-o output_file]```
 
 
 
