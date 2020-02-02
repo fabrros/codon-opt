@@ -153,13 +153,17 @@ def read_motifs(forbidden_file: str,
         with open(forbidden_file) as file:
             forbidden = file.readlines()
 
-        forbidden = [x.strip() for x in forbidden]
+        forbidden = [x.strip() for x in forbidden if len(x.strip()) > 3]
+
+        print (f'Number of forbidden motifs: {len(forbidden)}')
 
     if desired_file is not None:
         with open(desired_file) as file:
             desired = file.readlines()
 
-        desired = [x.strip() for x in desired]
+        desired = [x.strip() for x in desired if len(x.strip()) > 3]
+
+        print(f'Number of desired motifs: {len(desired)}')
 
     return forbidden, desired
 
@@ -567,15 +571,15 @@ def main():
 
         protein = row['Protein']
 
-        cai_before = math.pow(math.e,
-                              sum(Costs[protein[i * 3:i * 3 + 3]] for i in range(len(protein) // 3)) / (
-                                          len(protein) // 3))
+        #
+        # Calculate starting CAI and number of forbidden and desired motifs
+        #
 
         n_forbidden_start = count_forbidden(protein, forbidden)
         n_desired_start = count_desired(protein, desired)
-
-        print('%11d' % count, '|%8d' % len(protein), '|%11d' % n_forbidden_start,
-              '|%10d' % n_desired_start, ('|   %1.4f' % cai_before), end=' ')
+        cai_before = math.pow(math.e,
+                              sum(Costs[protein[i * 3:i * 3 + 3]] for i in range(len(protein) // 3)) / (
+                                      len(protein) // 3))
 
         dataset.loc[index, 'Forb. before'] = n_forbidden_start
         dataset.loc[index, 'Des. before'] = n_desired_start
@@ -590,7 +594,9 @@ def main():
         dataset.loc[index, 'CAI opt'] = cai
         dataset.loc[index, 'Time'] = time
 
-        print('|%9d' % dataset.loc[index, 'Forb. opt'], '|%8d' % dataset.loc[index, 'Des. opt'],
+        print('%11d' % count, '|%8d' % len(protein), '|%11d' % n_forbidden_start,
+              '|%10d' % n_desired_start, ('|   %1.4f' % cai_before),
+              '|%10d' % dataset.loc[index, 'Forb. opt'], '|%8d' % dataset.loc[index, 'Des. opt'],
               ('| %1.4f' % dataset.loc[index, 'CAI opt']), ('| %4.4f' % time))
 
     dataset.to_csv(args.output + '.csv')
