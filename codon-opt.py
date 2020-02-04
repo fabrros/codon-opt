@@ -324,10 +324,10 @@ def protein_from_solution(x: gb.tupledict,
     return ''.join(protein)
 
 
-def build_y_variables_index(desired: list,
-                            aminos: str) -> (list, dict, dict):
+def build_yd_variables_index(desired: list,
+                             aminos: str) -> (list, dict, dict):
     """
-    Build the index set of y variables
+    Build the index set of yd variables (position variables referred to forbidden motifs)
     :param: list of desired motifs, amino acids sequence
     :return list of y indexes, feasible positions for the basis, index of desired motifs
     """
@@ -353,12 +353,12 @@ def build_y_variables_index(desired: list,
     return index_list, feasible_positions_desired_basis, index_desired
 
 
-def build_z_variables_index(forbidden: list,
-                            aminos: str) -> (list, dict, dict):
+def build_yf_variables_index(forbidden: list,
+                             aminos: str) -> (list, dict, dict):
     """
-    Build the index set of z variables
+    Build the index set of yf variables (position variables referred to forbidden motifs)
     :param: list of forbidden motifs, amino acids sequence
-    :return list of z indexes, feasible positions for the basis, index of forbidden motifs
+    :return list of yf indexes, feasible positions for the basis, index of forbidden motifs
     """
 
     index_list = []
@@ -464,41 +464,41 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
 
     model.addConstrs((x.sum(i, '*', '*') == 1 for i in range(protein_length // 3)), name='Pos')
 
-    # Build index of y variables
+    # Build index of yd variables
 
     index_list, feasible_positions_desired, index_desired = \
-        build_y_variables_index(desired, aminos)
+        build_yd_variables_index(desired, aminos)
 
-    # y variables
+    # yd variables
 
     if index_list:
 
-        y = model.addVars(index_list, vtype='B', name='y')
+        yd = model.addVars(index_list, vtype='B', name='yd')
 
         for motif in feasible_positions_desired:
             for pos in feasible_positions_desired[motif]:
                 aux = [codon[h] for codon in feasible_positions_desired[motif][pos] for h in codon]
                 for idx, codlist in enumerate(aux):
-                    model.addConstr(y[index_desired[motif], str(pos).replace(" ", "")] <=
+                    model.addConstr(yd[index_desired[motif], str(pos).replace(" ", "")] <=
                                     gb.quicksum([x[pos[0] // 3 + idx, TableDNA[cod], cod] for cod in codlist]),
                                     name='DesMotif[' + str(index_desired[motif]) + ']' +
                                          str(pos).replace(" ", "") + 'Pos[' + str(pos[0] // 3 + idx) + ']')
 
         # Desired motifs objective has index 1 and priority 1 (medium priority)
 
-        model.setObjectiveN(y.prod({i: 1.0 for i in index_list}), 1, 1, name='Desired')
+        model.setObjectiveN(yd.prod({i: 1.0 for i in index_list}), 1, 1, name='Desired')
 
     #
-    # Build index of z variables
+    # Build index of yf variables
     #
 
     index_list, feasible_positions_forbidden, index_forbidden = \
-        build_z_variables_index(forbidden, aminos)
+        build_yf_variables_index(forbidden, aminos)
 
-    # z variables
+    # yf variables
 
     if index_list:
-        z = model.addVars(index_list, vtype='B', name='z')
+        yf = model.addVars(index_list, vtype='B', name='yf')
 
         for motif in feasible_positions_forbidden:
 
@@ -509,13 +509,13 @@ def gen_protein_hierarchical_objectives(target_protein, forbidden, desired):
                 for idx, codlist in enumerate(aux):
                     lhs += gb.quicksum([x[pos[0] // 3 + idx, TableDNA[cod], cod] for cod in codlist])
                     rhs += 1.0
-                model.addConstr(lhs - z[index_forbidden[motif], str(pos).replace(" ", "")]
+                model.addConstr(lhs - yf[index_forbidden[motif], str(pos).replace(" ", "")]
                                 <= rhs - 1,
                                 name='ForbMotif[' + str(index_forbidden[motif]) + ']' + str(pos).replace(" ", ""))
 
         # Desired motifs objective has index 0 and priority 2 (highest priority)
 
-        model.setObjectiveN(z.prod({i: -1.0 for i in index_list}), 0, 2, name='Forbidden')
+        model.setObjectiveN(yf.prod({i: -1.0 for i in index_list}), 0, 2, name='Forbidden')
 
     # Attach data to Gurobi model
 
