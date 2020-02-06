@@ -32,10 +32,11 @@ doi = {},
 ## Input data
 
 A ```.fasta``` file containing a list of target proteins
-(see https://en.wikipedia.org/wiki/FASTA_format for format description)
+(see https://en.wikipedia.org/wiki/FASTA_format for format description
+or the sample file ```target.fasta```).
 
-Two (optional) text files ```forbidden.txt``` and ```desired.txt```
-containing a list of forbidden and desired motifs
+Two (optional) text files containing the lists of forbidden and desired motifs
+(see, for instance, ```forbidden.txt``` and ```desired.txt``` files).
 
 ## Requirements
 
