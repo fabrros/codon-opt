@@ -20,7 +20,7 @@ Further details can be found on
 @article{ArbibPinarRossiTessitore2020,
 author = {Arbib, C., Pinar, M., Rossi, F., Tessitore A.},
 title = {Codon Optimization by 0-1 Linear Programming},
-journal = {Computers and Operations Research (submitted)},
+journal = {Computers and Operations Research},
 volume = {119},
 number = {},
 pages = {},
