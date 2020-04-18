@@ -21,11 +21,11 @@ Further details can be found on
 author = {Arbib, C., Pinar, M., Rossi, F., Tessitore A.},
 title = {Codon Optimization by 0-1 Linear Programming},
 journal = {Computers and Operations Research (submitted)},
-volume = {},
+volume = {119},
 number = {},
 pages = {},
-year = {},
-doi = {},
+year = {2020},
+doi = {https://doi.org/10.1016/j.cor.2020.104932},
 }
 ```
 
